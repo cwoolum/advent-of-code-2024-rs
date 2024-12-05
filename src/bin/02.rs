@@ -102,63 +102,106 @@ fn main() -> Result<()> {
     //endregion
 
     //region Part 2
-    // println!("\n=== Part 2 ===");
+    println!("\n=== Part 2 ===");
 
-    // fn part2<R: BufRead>(reader: R) -> Result<u128> {
-    //     let (first_column, second_column) = reader
-    //         .lines()
-    //         .flatten()
-    //         // Each line is two numbers tab delimited
-    //         //.map(|s| s.chars().join("").split_whitespace())
-    //         .map(|s| {
-    //             let parts: Vec<String> = s
-    //                 .split_whitespace()
-    //                 .map(|s| s.to_string()) // Convert &str to String
-    //                 .collect();
+    fn handle_increasing_row_with_safety(values: &[i32], use_safety: bool) -> Result<()> {
+        // Note: Result is from anyhow
+        if values.is_empty() {
+            return Ok(());
+        }
 
-    //             (parts[0].clone(), parts[1].clone()) // This creates a tuple of the two parts
-    //         })
-    //         .fold(
-    //             (Vec::new(), Vec::new()),
-    //             |(mut first_column, mut second_column), (first, second)| {
-    //                 first_column.push(first.parse::<i32>().unwrap());
-    //                 second_column.push(second.parse::<i32>().unwrap());
-    //                 (first_column, second_column)
-    //             },
-    //         );
+        for n in 1..values.len() {
+            if values[n - 1] >= values[n] {
+                if use_safety {
+                    let mut new_vec = values.to_vec();
+                    new_vec.remove(n);
+                    return handle_increasing_row_with_safety(&new_vec, false);
+                }
 
-    //     let mut overall_total: u128 = 0;
-    //     let mut second_column_mapped = HashMap::new();
+                return Err(anyhow!("Row is not increasing"));
+            }
 
-    //     for ele in second_column {
-    //         if !second_column_mapped.contains_key(&ele) {
-    //             second_column_mapped.insert(ele, 0);
-    //         }
+            let diff = (values[n] - values[n - 1]).abs();
+            if diff < 1 || diff > 3 {
+                if use_safety {
+                    let mut new_vec = values.to_vec();
+                    new_vec.remove(n);
+                    return handle_increasing_row_with_safety(&new_vec, false);
+                }
 
-    //         let value = second_column_mapped.get(&ele).unwrap();
+                return Err(anyhow!("Value is unsafe"));
+            }
+        }
 
-    //         second_column_mapped.insert(ele, value + 1);
-    //     }
+        Ok(())
+    }
 
-    //     for ele in first_column {
-    //         if second_column_mapped.contains_key(&ele) {
-    //             let element_count = second_column_mapped.get(&ele).unwrap();
+    fn handle_decreasing_row_with_safety(values: &[i32], use_safety: bool) -> Result<()> {
+        if values.is_empty() {
+            return Ok(());
+        }
 
-    //             if *element_count > 0 {
-    //                 overall_total +=
-    //                     u128::try_from(ele).unwrap() * u128::try_from(*element_count).unwrap();
-    //             }
-    //         }
-    //     }
+        for n in 1..(values.len()) {
+            if values[n - 1] < values[n] {
+                if use_safety {
+                    let mut new_vec = values.to_vec();
+                    new_vec.remove(n);
+                    return handle_decreasing_row_with_safety(&new_vec, false);
+                }
 
-    //     Ok(overall_total)
-    // }
+                return Err(anyhow!("Row is not decreasing"));
+            }
 
-    // assert_eq!(31, part2(BufReader::new(TEST.as_bytes()))?);
+            let diff = (values[n - 1] - values[n]).abs();
 
-    // let input_file = BufReader::new(File::open(INPUT_FILE)?);
-    // let result = time_snippet!(part2(input_file)?);
-    // println!("Result = {}", result);
+            if diff > 3 || diff < 1 {
+                if use_safety {
+                    let mut new_vec = values.to_vec();
+                    new_vec.remove(n);
+                    return handle_decreasing_row_with_safety(&new_vec, false);
+                }
+
+                return Err(anyhow!("Value is unsafe"));
+            }
+        }
+
+        Ok(())
+    }
+
+    fn part2<R: BufRead>(reader: R) -> Result<u128> {
+        let rows = reader.lines().flatten().map(|s| {
+            let parts: Vec<i32> = s
+                .split_whitespace()
+                .map(|s| s.to_string().parse::<i32>().unwrap()) // Convert &str to String
+                .collect();
+
+            parts
+        });
+
+        let mut overall_total = 0;
+
+        for row in rows {
+            if row[0] > row[1] {
+                match handle_decreasing_row_with_safety(&row, true) {
+                    Ok(_) => overall_total += 1,
+                    Err(err) => println!("{} {:?}", err, row),
+                }
+            } else {
+                match handle_increasing_row_with_safety(&row, true) {
+                    Ok(_) => overall_total += 1,
+                    Err(err) => println!("{} {:?}", err, row),
+                }
+            }
+        }
+
+        Ok(overall_total)
+    }
+
+    assert_eq!(4, part2(BufReader::new(TEST.as_bytes()))?);
+
+    let input_file = BufReader::new(File::open(INPUT_FILE)?);
+    let result = time_snippet!(part2(input_file)?);
+    println!("Result = {}", result);
     // endregion
 
     Ok(())
